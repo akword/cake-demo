@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 互动展示</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f5f5f5; font-family: 'PingFang SC', sans-serif; }
+        .header { position: absolute; top: 30px; width: 100%; text-align: center; pointer-events: none; z-index: 10; }
+        .header h1 { margin: 0; color: #333; font-size: 22px; letter-spacing: 2px; }
+        .footer { position: absolute; bottom: 20px; width: 100%; text-align: center; z-index: 10; }
+        .footer .contact { background: rgba(255,255,255,0.9); display: inline-block; padding: 12px 25px; border-radius: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .footer .contact b { color: #007aff; font-size: 16px; }
+        #loading { position: absolute; top: 50%; width: 100%; text-align: center; color: #666; z-index: 10; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="header"><h1>3D 产品互动展示</h1></div>
+    <div class="footer">
+        <div class="contact">定制专属3D展示：<b>微信 Auror_Volta</b></div>
+    </div>
+    <div id="loading">正在加载模型...</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf5f5f5);
+
+        // 相机固定死死地站在 (0, 2, 10) 的位置，盯着原点
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(0, 2, 10); 
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // 暴力打光
+        scene.add(new THREE.AmbientLight(0xffffff, 2));
+        const light1 = new THREE.DirectionalLight(0xffffff, 3);
+        light1.position.set(10, 10, 10);
+        scene.add(light1);
+
+        // 加一个底盘，证明原点在哪里（如果模型飞了，你能看到底盘）
+        // const gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xeeeeee);
+        // gridHelper.position.y = -1; // 稍微往下放一点
+        // scene.add(gridHelper);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 2.0;
+
+        const loader = new GLTFLoader();
+        loader.load('./cake-3d.glb', function (gltf) {
+            const model = gltf.scene;
+            
+            // 【核心暴力药】：直接把模型放大 50 倍，并放在原点
+            // 如果你之前看到的是个芝麻，放大50倍绝对是个巨无霸
+            model.scale.set(50, 50, 50); 
+            model.position.set(0, 0, 0); 
+
+            scene.add(model);
+            document.getElementById('loading').style.display = 'none';
+            
+            // 加载完后，强制把镜头对准模型的中心
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3()).length();
+            const center = box.getCenter(new THREE.Vector3());
+            
+            controls.target.set(0, 0, 0);
+            // 根据50倍后的大小，把相机推到合理距离
+            camera.position.set(0, size * 0.2, size * 1.5);
+            camera.lookAt(0, 0, 0);
+
+        }, undefined, function (error) {
+            console.error('模型加载失败', error);
+            document.getElementById('loading').innerText = '加载失败，请按 F12 看控制台';
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
